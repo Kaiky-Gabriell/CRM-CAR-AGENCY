@@ -1,0 +1,200 @@
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Car, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger';
+import { signupSchema } from '../lib/validators';
+
+import { useAuth } from '../auth/useAuth';
+
+export const Signup: React.FC = () => {
+  const navigate = useNavigate();
+  const { initialized, user } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // If already logged in, go to home
+  React.useEffect(() => {
+    if (initialized && user) {
+      navigate('/', { replace: true });
+    }
+  }, [initialized, user, navigate]);
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const companyId = crypto.randomUUID();
+
+    try {
+      // Validar inputs com Zod
+      const validated = signupSchema.parse({ companyName, email, password });
+
+      // 1. Criar o usuário no Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: validated.email,
+        password: validated.password,
+        options: {
+          data: {
+            company_name: validated.companyName,
+            company_id: companyId,
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      // 2. Criar o registro da empresa na tabela 'companies'
+      const { error: companyError } = await (supabase as any).from('companies').insert({
+        id: companyId,
+        name: validated.companyName,
+      });
+
+      if (companyError) {
+        logger.error('Erro ao criar empresa:', companyError);
+      }
+
+      alert('Cadastro realizado com sucesso! Se necessário, confirme seu e-mail.');
+      navigate('/');
+    } catch (err: unknown) {
+      logger.error('Signup error:', err);
+      if (err instanceof Error && err.name === 'ZodError') {
+        const zodError = err as any;
+        setError(zodError.errors[0]?.message || 'Dados inválidos.');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Erro ao realizar cadastro');
+      } else {
+        setError('Ocorreu um erro inesperado.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      justifyContent: 'center', 
+      alignItems: 'center',
+      padding: 'var(--spacing-xl)'
+    }}>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--accent-primary)', marginBottom: 'var(--spacing-md)' }}>
+          <Car size={48} />
+        </div>
+        <h2 style={{ fontSize: '2rem', marginBottom: 'var(--spacing-xs)' }}>Crie sua conta</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Já tem uma conta? <Link to="/login" style={{ color: 'var(--accent-primary)' }}>Faça login</Link>
+        </p>
+      </div>
+
+      <div className="glass-card" style={{ 
+        width: '100%', 
+        maxWidth: '400px', 
+        padding: 'var(--spacing-xl)' 
+      }}>
+        <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+          {error && (
+            <div style={{ 
+              background: 'rgba(225, 112, 85, 0.1)', 
+              border: '1px solid var(--accent-danger)', 
+              padding: 'var(--spacing-md)', 
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              gap: 'var(--spacing-sm)',
+              alignItems: 'center',
+              color: 'var(--accent-danger)'
+            }}>
+              <AlertCircle size={20} />
+              <span style={{ fontSize: '0.875rem' }}>{error}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Nome da Agência</label>
+            <input
+              type="text"
+              required
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                width: '100%'
+              }}
+              placeholder="Minha Agência Motors"
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                width: '100%'
+              }}
+              placeholder="seu@email.com"
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Senha</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                width: '100%'
+              }}
+              placeholder="••••••••"
+              minLength={6}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: 'var(--accent-primary)',
+              color: 'white',
+              padding: '0.75rem',
+              borderRadius: 'var(--radius-md)',
+              fontWeight: 600,
+              marginTop: 'var(--spacing-sm)',
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Criando...' : 'Criar Conta'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
