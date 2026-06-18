@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Clients } from './pages/Clients';
@@ -16,12 +16,12 @@ function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            
+
             {/* Private Routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Layout />}>
@@ -35,7 +35,7 @@ function App() {
             {/* Global Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </AppProvider>
     </ErrorBoundary>
   );
